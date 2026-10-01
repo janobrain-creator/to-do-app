@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Subjects — To-dos & Notes</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2f6fed; --accent-soft:#e8f0fe; --danger:#d14343; --ok:#12805c;
+    --side:#eef6ef; --side-line:#d5e5d8; --side-hover:#e2efe4;
+    --radius:10px; --shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;cursor:pointer}
+  input,textarea,select{font:inherit;color:inherit}
+  .app{display:grid;grid-template-columns:250px 1fr;height:100vh;overflow:hidden}
+
+  /* ---------- sidebar ---------- */
+  .sidebar{background:var(--side);border-right:1px solid var(--side-line);display:flex;flex-direction:column;min-height:0}
+  .brand{padding:16px 16px 10px;font-weight:650;letter-spacing:-.01em;font-size:15px;display:flex;align-items:center;gap:8px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .search{padding:0 12px 10px}
+  .search input{
+    width:100%;padding:7px 10px;border:1px solid var(--side-line);border-radius:8px;background:#fff;outline:none;
+  }
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .nav{overflow-y:auto;flex:1;padding:4px 8px 8px;min-height:0}
+  .nav-label{padding:10px 8px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+  .nav-label button{background:none;border:none;color:var(--muted);font-size:16px;line-height:1;padding:0 4px;border-radius:6px}
+  .nav-label button:hover{background:var(--side-hover);color:var(--ink)}
+  .item{
+    display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;
+    padding:7px 8px;border-radius:8px;color:var(--ink);
+  }
+  .item:hover{background:var(--side-hover)}
+  .item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .item .swatch{width:8px;height:8px;border-radius:50%;flex:none;background:var(--accent)}
+  .item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .caret{width:14px;flex:none;display:inline-flex;justify-content:center;color:var(--muted);font-size:10px;border-radius:4px;user-select:none}
+  .item .caret:hover{background:var(--side-line);color:var(--ink)}
+  .item .count{font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--side-line);border-radius:10px;padding:1px 7px}
+  .item.active .count{background:#fff;border-color:transparent;color:var(--accent)}
+  .sidebar-foot{border-top:1px solid var(--side-line);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap}
+  .ghost{background:none;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12px;color:var(--muted)}
+  .ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .sidebar-foot .ghost{background:#fff;border-color:var(--side-line)}
+
+  /* ---------- main ---------- */
+  .main{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .head{padding:18px 26px 0;display:flex;align-items:flex-start;gap:12px}
+  .head h1{margin:0;font-size:21px;letter-spacing:-.02em;font-weight:650}
+  .head h1[contenteditable]:focus{outline:none;border-bottom:2px solid var(--accent)}
+  .head .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .head .spacer{flex:1}
+  .tabs{display:flex;gap:2px;padding:14px 26px 0;border-bottom:1px solid var(--line)}
+  .tab{background:none;border:none;padding:8px 12px;border-bottom:2px solid transparent;color:var(--muted);font-weight:550;border-radius:6px 6px 0 0}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .body{flex:1;overflow-y:auto;padding:18px 26px 60px;min-height:0}
+  .wrap{max-width:820px}
+
+  /* ---------- tasks ---------- */
+  .add-row{display:flex;gap:8px;margin-bottom:14px}
+  .add-row input[type=text]{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;outline:none;box-shadow:var(--shadow)}
+  .add-row input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .add-row input[type=date]{padding:9px 10px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;color:var(--muted)}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:10px 15px;font-weight:600}
+  .btn:hover{filter:brightness(.94)}
+  .task{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:7px}
+  .task:hover{border-color:#d3d8e0}
+  .task input[type=checkbox]{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none}
+  .task .txt{flex:1;min-width:0;word-break:break-word}
+  .task.done .txt{text-decoration:line-through;color:var(--muted)}
+  .task .meta{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--muted);margin-top:3px;flex-wrap:wrap}
+  .pill{border:1px solid var(--line);border-radius:20px;padding:1px 8px}
+  .pill.due{color:var(--muted)}
+  .pill.overdue{color:var(--danger);border-color:#f3c7c7;background:#fdf1f1}
+  .pill.today{color:#a05a00;border-color:#f0dfc0;background:#fdf7ec}
+  .pill.subject{color:var(--accent);border-color:#cfe0fb;background:var(--accent-soft)}
+  .x{background:none;border:none;color:#c3c8d0;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px}
+  .x:hover{color:var(--danger);background:#fdf1f1}
+  .sub-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .sub-chips .label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:650;margin-right:2px}
+  .chip{background:#fff;border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-size:12.5px;display:inline-flex;gap:6px;align-items:center}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .chip .swatch{width:7px;height:7px;border-radius:50%}
+  .crumb{background:none;border:none;padding:0;color:var(--accent);font-size:inherit}
+  .crumb:hover{text-decoration:underline}
+  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:650;margin:22px 0 8px}
+
+  /* ---------- notes ---------- */
+  .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .note{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:12px;text-align:left;min-height:104px;display:flex;flex-direction:column;gap:5px}
+  .note:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+  .note .t{font-weight:600}
+  .note .p{color:var(--muted);font-size:12.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;white-space:pre-wrap}
+  .note .p *{font-size:inherit !important}
+  .note .d{margin-top:auto;font-size:11px;color:#9aa1ab}
+
+  .editor{position:fixed;inset:0;background:rgba(17,20,26,.35);display:flex;align-items:center;justify-content:center;padding:24px;z-index:20}
+  .editor .card{background:#fff;border-radius:14px;width:min(720px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(16,24,40,.2)}
+  .editor .card header{display:flex;gap:10px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .editor input.title{flex:1;border:none;outline:none;font-size:17px;font-weight:650;letter-spacing:-.01em}
+  .editor .toolbar{display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .editor .toolbar .label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:650;margin-right:2px}
+  .swatch-btn{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.14);padding:0}
+  .swatch-btn:hover{outline:2px solid var(--accent-soft)}
+  .swatch-btn.none{width:auto;height:22px;padding:2px 8px;background:#fff;color:var(--muted);font-size:11.5px;line-height:1}
+  .editor .rte{flex:1;overflow-y:auto;outline:none;padding:16px;font-size:14px;line-height:1.7;min-height:320px;white-space:pre-wrap;word-break:break-word}
+  .editor .rte:empty:before{content:attr(data-placeholder);color:#9aa1ab}
+  .editor .rte mark{border-radius:3px;padding:0 1px}
+  .note .p mark{border-radius:3px;padding:0 1px}
+  .editor footer{display:flex;gap:8px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+  .editor footer .spacer{flex:1}
+
+  .empty{color:var(--muted);text-align:center;padding:46px 20px;border:1px dashed var(--line);border-radius:12px;background:#fff}
+  .hint{color:var(--muted);font-size:12px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#15181d;color:#fff;padding:8px 14px;border-radius:20px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:fixed;inset:0 auto 0 0;width:250px;z-index:30;transform:translateX(-100%);transition:transform .2s}
+    .sidebar.open{transform:none;box-shadow:0 0 40px rgba(0,0,0,.2)}
+    .menu-btn{display:inline-flex !important}
+  }
+  .menu-btn{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="dot"></span> Subjects</div>
+    <div class="search"><input id="search" type="search" placeholder="Search everything…" /></div>
+    <nav class="nav">
+      <div class="nav-label">Overview</div>
+      <button class="item" data-view="all"><span class="swatch" style="background:#8b93a1"></span><span class="name">All to-dos</span><span class="count" id="cnt-all"></span></button>
+      <button class="item" data-view="today"><span class="swatch" style="background:#e5a13a"></span><span class="name">Due &amp; overdue</span><span class="count" id="cnt-today"></span></button>
+      <div class="nav-label">Subjects <button id="add-subject" title="New subject">+</button></div>
+      <div id="subject-list"></div>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="ghost" id="export">Export</button>
+      <button class="ghost" id="import">Import</button>
+      <input type="file" id="file" accept="application/json" hidden />
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <button class="ghost menu-btn" id="menu">☰</button>
+      <div>
+        <h1 id="title">All to-dos</h1>
+        <div class="sub" id="subtitle"></div>
+      </div>
+      <div class="spacer"></div>
+      <button class="ghost" id="add-child" hidden>+ Sub-category</button>
+      <button class="ghost" id="rename" hidden>Rename</button>
+      <button class="ghost" id="delete-subject" hidden>Delete subject</button>
+    </div>
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="todos">To-dos</button>
+      <button class="tab" data-tab="notes">Notes</button>
+    </div>
+    <div class="body"><div class="wrap" id="content"></div></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+  const KEY = "subjects-app-v1";
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const COLORS = ["#2f6fed","#12805c","#b4530a","#8b3fd1","#c2255c","#0b7285","#5c7cfa","#e5a13a"];
+  const HIGHLIGHTS = [
+    { n: "Yellow", c: "#fff3a3" }, { n: "Green", c: "#c9efc4" }, { n: "Blue", c: "#c5e2fb" },
+    { n: "Pink", c: "#fbc9dd" }, { n: "Orange", c: "#fdd7ab" }, { n: "Purple", c: "#ddd0fb" }
+  ];
+
+  /* ---------------- state ---------------- */
+  const seed = () => {
+    const s1 = { id: uid(), name: "Acme Corp", color: COLORS[0], created: Date.now() };
+    const s2 = { id: uid(), name: "Personal", color: COLORS[1], created: Date.now() };
+    return {
+      subjects: [s1, s2],
+      todos: [
+        { id: uid(), subjectId: s1.id, text: "Send Q3 proposal", done: false, due: today(), created: Date.now() },
+        { id: uid(), subjectId: s1.id, text: "Follow up on invoice #182", done: false, due: "", created: Date.now() },
+        { id: uid(), subjectId: s2.id, text: "Book dentist", done: true, due: "", created: Date.now() }
+      ],
+      notes: [
+        { id: uid(), subjectId: s1.id, title: "Kickoff call notes",
+          body: "Stakeholders: Dana (ops), Luis (finance).\nThey want a pilot before the annual renewal.\nNext step: scope doc by Friday.",
+          created: Date.now(), updated: Date.now() }
+      ],
+      ui: { view: "all", tab: "todos" }
+    };
+  };
+
+  let state;
+  try {
+    const raw = localStorage.getItem(KEY);
+    state = raw ? JSON.parse(raw) : seed();
+  } catch (e) { state = seed(); }
+  if (!state.ui) state.ui = { view: "all", tab: "todos" };
+
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast("Could not save — storage full?"); } };
+
+  /* ---------------- helpers ---------------- */
+  function today() { const d = new Date(); return d.toISOString().slice(0, 10); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+  function subjectOf(id) { return state.subjects.find(s => s.id === id); }
+  function parentKey(s) { return s.parentId && subjectOf(s.parentId) ? s.parentId : null; }
+  function childrenOf(pid) { return state.subjects.filter(s => parentKey(s) === (pid || null)); }
+  function subtreeIds(id, seen = new Set()) {
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [id, ...childrenOf(id).flatMap(c => subtreeIds(c.id, seen))];
+  }
+  function ancestors(s) {
+    const out = []; const seen = new Set([s.id]);
+    let cur = subjectOf(parentKey(s));
+    while (cur && !seen.has(cur.id)) { out.unshift(cur); seen.add(cur.id); cur = subjectOf(parentKey(cur)); }
+    return out;
+  }
+  function pathName(s) { return [...ancestors(s), s].map(x => x.name).join(" › "); }
+  function treeOrder(pid = null, depth = 0, skipCollapsed = false) {
+    return childrenOf(pid).flatMap(s => [{ s, depth },
+      ...(skipCollapsed && s.collapsed ? [] : treeOrder(s.id, depth + 1, skipCollapsed))]);
+  }
+  function subjectOptions(rootId) {
+    const root = subjectOf(rootId);
+    const list = root ? [{ s: root, depth: 0 }, ...treeOrder(root.id, 1)] : treeOrder();
+    return list.map(({ s, depth }) =>
+      `<option value="${s.id}">${"\u00a0\u00a0\u00a0".repeat(depth)}${esc(s.name)}</option>`).join("");
+  }
+  function subjectLabel(itemSubjectId, ctx) {
+    const s = subjectOf(itemSubjectId);
+    if (!s) return "";
+    if (!ctx) return pathName(s);
+    if (s.id === ctx.id) return "";
+    return [...ancestors(s), s].slice(ancestors(ctx).length + 1).map(x => x.name).join(" › ");
+  }
+  function subChips(subject) {
+    const kids = childrenOf(subject.id);
+    if (!kids.length) return "";
+    return `<div class="sub-chips"><span class="label">Sub-categories</span>` + kids.map(k => {
+      const n = state.todos.filter(t => subtreeIds(k.id).includes(t.subjectId) && !t.done).length;
+      return `<button class="chip" data-goto="${k.id}"><span class="swatch" style="background:${esc(k.color)}"></span>${esc(k.name)}${n ? ` <span class="hint">${n}</span>` : ""}</button>`;
+    }).join("") + `</div>`;
+  }
+  function wireGoto() {
+    content.querySelectorAll("[data-goto]").forEach(el => el.onclick = () => { state.ui.view = el.dataset.goto; save(); render(); });
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  function dueClass(iso) {
+    if (!iso) return "due";
+    if (iso < today()) return "overdue";
+    if (iso === today()) return "today";
+    return "due";
+  }
+  /* rich text: notes store `html`; `body` keeps a plain-text copy for search and previews */
+  function noteHtml(note) {
+    if (note.html != null) return note.html;
+    return esc(note.body || "").replace(/\n/g, "<br>");
+  }
+
+  const ALLOWED = new Set(["B","STRONG","I","EM","U","BR","DIV","P","SPAN","MARK","UL","OL","LI","A"]);
+  function sanitize(html) {
+    const box = document.createElement("div");
+    box.innerHTML = html;
+    box.querySelectorAll("*").forEach(el => {
+      if (!ALLOWED.has(el.tagName)) { el.replaceWith(...el.childNodes); return; }
+      [...el.attributes].forEach(a => {
+        const keepStyle = a.name === "style" && /^(background-color|color)\s*:/i.test(a.value);
+        const keepHref = a.name === "href" && /^https?:/i.test(a.value);
+        if (!keepStyle && !keepHref) el.removeAttribute(a.name);
+      });
+    });
+    return box.innerHTML;
+  }
+
+  function highlight(host, color) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !host.contains(sel.anchorNode)) { toast("Select some text first"); return; }
+    document.execCommand("styleWithCSS", false, true);
+    const ok = document.execCommand("hiliteColor", false, color === "none" ? "transparent" : color);
+    if (!ok) document.execCommand("backColor", false, color === "none" ? "transparent" : color);
+    if (color === "none") {
+      host.querySelectorAll("mark, span").forEach(el => {
+        const bg = el.style.backgroundColor;
+        if (!bg || bg === "transparent" || bg === "rgba(0, 0, 0, 0)") el.replaceWith(...el.childNodes);
+      });
+      host.normalize();
+    }
+  }
+
+  function placeCaretEnd(el) {
+    const r = document.createRange();
+    r.selectNodeContents(el); r.collapse(false);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  }
+
+  function relTime(ts) {
+    const diff = (Date.now() - ts) / 1000;
+    if (diff < 60) return "just now";
+    if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+    if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+    return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+  }
+
+  const $ = sel => document.querySelector(sel);
+  const content = $("#content");
+  let query = "";
+
+  /* ---------------- sidebar ---------------- */
+  function renderSidebar() {
+    const openTotal = state.todos.filter(t => !t.done).length;
+    const dueTotal = state.todos.filter(t => !t.done && t.due && t.due <= today()).length;
+    $("#cnt-all").textContent = openTotal || "";
+    $("#cnt-today").textContent = dueTotal || "";
+
+    const list = $("#subject-list");
+    list.innerHTML = treeOrder(null, 0, true).map(({ s, depth }) => {
+      const ids = subtreeIds(s.id);
+      const n = state.todos.filter(t => ids.includes(t.subjectId) && !t.done).length;
+      const hasKids = childrenOf(s.id).length > 0;
+      return `<button class="item" data-view="${s.id}" style="padding-left:${4 + depth * 16}px">
+        <span class="caret" ${hasKids ? `data-toggle="${s.id}" title="${s.collapsed ? "Expand" : "Collapse"}"` : ""}>${hasKids ? (s.collapsed ? "▸" : "▾") : ""}</span>
+        <span class="swatch" style="background:${esc(s.color)}"></span>
+        <span class="name">${esc(s.name)}</span>
+        <span class="count">${n || ""}</span></button>`;
+    }).join("") || `<div class="hint" style="padding:6px 8px">No subjects yet.</div>`;
+
+    document.querySelectorAll(".item").forEach(el => {
+      el.classList.toggle("active", el.dataset.view === state.ui.view);
+      el.onclick = e => {
+        const tog = e.target.closest("[data-toggle]");
+        if (tog) {
+          const s = subjectOf(tog.dataset.toggle);
+          if (s) { s.collapsed = !s.collapsed; save(); renderSidebar(); }
+          return;
+        }
+        state.ui.view = el.dataset.view; save(); render(); $("#sidebar").classList.remove("open");
+      };
+    });
+  }
+
+  /* ---------------- main render ---------------- */
+  function render() {
+    renderSidebar();
+    const view = state.ui.view;
+    const subject = subjectOf(view);
+    const searching = query.trim().length > 0;
+
+    $("#add-child").hidden = !subject;
+    $("#rename").hidden = !subject;
+    $("#delete-subject").hidden = !subject;
+    $("#tabs").style.display = searching ? "none" : "flex";
+
+    if (searching) {
+      $("#title").textContent = "Search";
+      $("#subtitle").textContent = `Results for “${query.trim()}”`;
+      renderSearch();
+      return;
+    }
+
+    if (subject) {
+      $("#title").textContent = subject.name;
+      const ids = subtreeIds(subject.id);
+      const open = state.todos.filter(t => ids.includes(t.subjectId) && !t.done).length;
+      const notes = state.notes.filter(n => ids.includes(n.subjectId)).length;
+      const crumbs = ancestors(subject).map(a => `<button class="crumb" data-crumb="${a.id}">${esc(a.name)}</button> › `).join("");
+      $("#subtitle").innerHTML = crumbs + `${open} open to-do${open === 1 ? "" : "s"} · ${notes} note${notes === 1 ? "" : "s"}`;
+      $("#subtitle").querySelectorAll("[data-crumb]").forEach(b => b.onclick = () => { state.ui.view = b.dataset.crumb; save(); render(); });
+    } else if (view === "today") {
+      $("#title").textContent = "Due & overdue";
+      $("#subtitle").textContent = "Everything with a date of today or earlier";
+    } else {
+      $("#title").textContent = "All to-dos";
+      $("#subtitle").textContent = "Across every subject";
+    }
+
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === state.ui.tab));
+    if (subject && state.ui.tab === "notes") renderNotes(subject);
+    else if (state.ui.tab === "notes") renderNotes(null);
+    else renderTodos(subject, view === "today");
+  }
+
+  /* ---------------- to-dos ---------------- */
+  function todoRow(t, ctx) {
+    const label = subjectLabel(t.subjectId, ctx);
+    return `<div class="task ${t.done ? "done" : ""}" data-id="${t.id}">
+      <input type="checkbox" ${t.done ? "checked" : ""} data-act="toggle" />
+      <div class="txt">${esc(t.text)}
+        <div class="meta">
+          ${label ? `<span class="pill subject">${esc(label)}</span>` : ""}
+          ${t.due ? `<span class="pill ${dueClass(t.due)}">${t.due < today() && !t.done ? "Overdue · " : ""}${fmtDate(t.due)}</span>` : ""}
+        </div>
+      </div>
+      <button class="x" data-act="del" title="Delete">✕</button>
+    </div>`;
+  }
+
+  function renderTodos(subject, dueOnly) {
+    let items = state.todos.slice();
+    if (subject) { const ids = subtreeIds(subject.id); items = items.filter(t => ids.includes(t.subjectId)); }
+    if (dueOnly) items = items.filter(t => !t.done && t.due && t.due <= today());
+
+    const sorter = (a, b) => {
+      if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+      if (a.due && b.due && a.due !== b.due) return a.due < b.due ? -1 : 1;
+      if (!!a.due !== !!b.due) return a.due ? -1 : 1;
+      return b.created - a.created;
+    };
+    const open = items.filter(t => !t.done).sort(sorter);
+    const done = items.filter(t => t.done).sort(sorter);
+
+    const canAdd = !!subject || state.subjects.length > 0;
+    const addBar = canAdd ? `
+      <div class="add-row">
+        <input id="new-todo" type="text" placeholder="Add a to-do…" autocomplete="off" />
+        ${subject && !childrenOf(subject.id).length ? "" : `<select id="new-subject" style="padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;max-width:200px">
+            ${subjectOptions(subject ? subject.id : null)}
+          </select>`}
+        <input id="new-due" type="date" title="Due date" />
+        <button class="btn" id="add-todo">Add</button>
+      </div>` : `<div class="empty">Create a subject first — use the <strong>+</strong> next to “Subjects”.</div>`;
+
+    content.innerHTML = (subject ? subChips(subject) : "") + addBar +
+      (open.length ? open.map(t => todoRow(t, subject)).join("")
+        : `<div class="empty">${dueOnly ? "Nothing due. Nice." : "No open to-dos here."}</div>`) +
+      (done.length ? `<div class="section-title">Completed (${done.length}) <button class="ghost" id="clear-done" style="margin-left:8px">Clear</button></div>`
+        + done.map(t => todoRow(t, subject)).join("") : "");
+
+    const input = $("#new-todo");
+    const addNow = () => {
+      const text = input.value.trim();
+      if (!text) return;
+      const sid = $("#new-subject") ? $("#new-subject").value : (subject ? subject.id : null);
+      if (!sid) return;
+      state.todos.unshift({ id: uid(), subjectId: sid, text, done: false, due: ($("#new-due").value || ""), created: Date.now() });
+      save(); render(); $("#new-todo").focus();
+    };
+    if (input) {
+      input.onkeydown = e => { if (e.key === "Enter") addNow(); };
+      $("#add-todo").onclick = addNow;
+    }
+    const clear = $("#clear-done");
+    if (clear) clear.onclick = () => {
+      const ids = new Set(done.map(t => t.id));
+      state.todos = state.todos.filter(t => !ids.has(t.id));
+      save(); render(); toast("Completed to-dos cleared");
+    };
+    wireTodoRows();
+    wireGoto();
+  }
+
+  function wireTodoRows() {
+    content.querySelectorAll(".task").forEach(row => {
+      const t = state.todos.find(x => x.id === row.dataset.id);
+      if (!t) return;
+      const cb = row.querySelector('[data-act="toggle"]');
+      if (cb) cb.onchange = () => { t.done = cb.checked; save(); render(); };
+      const del = row.querySelector('[data-act="del"]');
+      if (del) del.onclick = () => { state.todos = state.todos.filter(x => x.id !== t.id); save(); render(); };
+      const txt = row.querySelector(".txt");
+      if (txt) txt.ondblclick = () => {
+        const next = prompt("Edit to-do", t.text);
+        if (next && next.trim()) { t.text = next.trim(); save(); render(); }
+      };
+    });
+  }
+
+  /* ---------------- notes ---------------- */
+  function renderNotes(subject) {
+    let items = state.notes.slice();
+    if (subject) { const ids = subtreeIds(subject.id); items = items.filter(n => ids.includes(n.subjectId)); }
+    items.sort((a, b) => b.updated - a.updated);
+
+    const canAdd = !!subject || state.subjects.length > 0;
+    content.innerHTML = (subject ? subChips(subject) : "") +
+      (canAdd ? `<div class="add-row"><button class="btn" id="new-note">+ New note</button>
+         ${subject && !childrenOf(subject.id).length ? "" : `<select id="note-subject" style="padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;max-width:240px">
+           ${subjectOptions(subject ? subject.id : null)}</select>`}</div>`
+        : `<div class="empty">Create a subject first.</div>`) +
+      (items.length ? `<div class="notes-grid">` + items.map(n => {
+        const label = subjectLabel(n.subjectId, subject);
+        return `<button class="note" data-id="${n.id}">
+          <div class="t">${esc(n.title || "Untitled")}</div>
+          <div class="p">${sanitize(noteHtml(n))}</div>
+          <div class="d">${label ? esc(label) + " · " : ""}${relTime(n.updated)}</div>
+        </button>`;
+      }).join("") + `</div>` : `<div class="empty">No notes yet.</div>`);
+
+    const nb = $("#new-note");
+    if (nb) nb.onclick = () => {
+      const sid = $("#note-subject") ? $("#note-subject").value : (subject ? subject.id : null);
+      if (!sid) return;
+      const note = { id: uid(), subjectId: sid, title: "", body: "", html: "", created: Date.now(), updated: Date.now() };
+      state.notes.unshift(note); save(); openNote(note.id);
+    };
+    content.querySelectorAll(".note").forEach(el => el.onclick = () => openNote(el.dataset.id));
+    wireGoto();
+  }
+
+  function openNote(id) {
+    const note = state.notes.find(n => n.id === id);
+    if (!note) return;
+    const wrap = document.createElement("div");
+    wrap.className = "editor";
+    wrap.innerHTML = `<div class="card">
+      <header>
+        <input class="title" placeholder="Note title" value="${esc(note.title)}" />
+        <button class="ghost" data-act="delete">Delete</button>
+        <button class="ghost" data-act="close">Close</button>
+      </header>
+      <div class="toolbar">
+        <span class="label">Highlight</span>
+        ${HIGHLIGHTS.map(h => `<button class="swatch-btn" data-color="${h.c}" title="${h.n}" style="background:${h.c}"></button>`).join("")}
+        <button class="swatch-btn none" data-color="none" title="Remove highlight">Clear</button>
+        <span style="flex:1"></span>
+        <span class="hint">Select text, then pick a colour</span>
+      </div>
+      <div class="rte" contenteditable="true" data-placeholder="Write anything…"></div>
+      <footer><span data-role="status">Saved ${relTime(note.updated)}</span><span class="spacer"></span>
+        <span>${esc(subjectOf(note.subjectId) ? pathName(subjectOf(note.subjectId)) : "")}</span></footer>
+    </div>`;
+    document.body.appendChild(wrap);
+
+    const title = wrap.querySelector(".title");
+    const body = wrap.querySelector(".rte");
+    const status = wrap.querySelector('[data-role="status"]');
+    body.innerHTML = sanitize(noteHtml(note));
+
+    let timer;
+    const persist = () => {
+      note.title = title.value;
+      note.html = sanitize(body.innerHTML);
+      note.body = body.innerText;
+      note.updated = Date.now();
+      save(); status.textContent = "Saved just now";
+    };
+    const onInput = () => { clearTimeout(timer); status.textContent = "Saving…"; timer = setTimeout(persist, 400); };
+    title.oninput = onInput; body.oninput = onInput;
+
+    wrap.querySelectorAll(".swatch-btn").forEach(b => {
+      b.onmousedown = e => e.preventDefault();
+      b.onclick = () => { highlight(body, b.dataset.color); onInput(); };
+    });
+
+    const close = () => { clearTimeout(timer); persist(); wrap.remove(); render(); };
+    wrap.querySelector('[data-act="close"]').onclick = close;
+    wrap.querySelector('[data-act="delete"]').onclick = () => {
+      if (!confirm("Delete this note?")) return;
+      clearTimeout(timer);
+      state.notes = state.notes.filter(n => n.id !== note.id);
+      save(); wrap.remove(); render(); toast("Note deleted");
+    };
+    wrap.onclick = e => { if (e.target === wrap) close(); };
+    wrap.onkeydown = e => { if (e.key === "Escape") close(); };
+    if (note.title) { body.focus(); placeCaretEnd(body); } else { title.focus(); }
+  }
+
+  /* ---------------- search ---------------- */
+  function renderSearch() {
+    const q = query.trim().toLowerCase();
+    const todos = state.todos.filter(t => t.text.toLowerCase().includes(q));
+    const notes = state.notes.filter(n => (n.title + " " + n.body).toLowerCase().includes(q));
+    content.innerHTML =
+      `<div class="section-title">To-dos (${todos.length})</div>` +
+      (todos.length ? todos.map(t => todoRow(t, null)).join("") : `<div class="empty">No matching to-dos.</div>`) +
+      `<div class="section-title">Notes (${notes.length})</div>` +
+      (notes.length ? `<div class="notes-grid">` + notes.map(n => {
+        const label = subjectLabel(n.subjectId, null);
+        return `<button class="note" data-id="${n.id}">
+          <div class="t">${esc(n.title || "Untitled")}</div>
+          <div class="p">${sanitize(noteHtml(n))}</div>
+          <div class="d">${label ? esc(label) + " · " : ""}${relTime(n.updated)}</div></button>`;
+      }).join("") + `</div>` : `<div class="empty">No matching notes.</div>`);
+    wireTodoRows();
+    content.querySelectorAll(".note").forEach(el => el.onclick = () => openNote(el.dataset.id));
+  }
+
+  /* ---------------- chrome ---------------- */
+  document.querySelectorAll(".tab").forEach(t => t.onclick = () => { state.ui.tab = t.dataset.tab; save(); render(); });
+
+  $("#search").oninput = e => { query = e.target.value; render(); };
+
+  $("#add-subject").onclick = () => {
+    const name = prompt("Subject name (client, team member, project…)");
+    if (!name || !name.trim()) return;
+    const s = { id: uid(), name: name.trim(), color: COLORS[state.subjects.length % COLORS.length], created: Date.now() };
+    state.subjects.push(s); state.ui.view = s.id; state.ui.tab = "todos"; save(); render();
+  };
+
+  $("#add-child").onclick = () => {
+    const parent = subjectOf(state.ui.view); if (!parent) return;
+    const name = prompt(`Sub-category name inside “${parent.name}”`);
+    if (!name || !name.trim()) return;
+    const s = { id: uid(), name: name.trim(), parentId: parent.id, color: parent.color, created: Date.now() };
+    parent.collapsed = false;
+    state.subjects.push(s); state.ui.view = s.id; save(); render();
+  };
+
+  $("#rename").onclick = () => {
+    const s = subjectOf(state.ui.view); if (!s) return;
+    const name = prompt("Rename subject", s.name);
+    if (name && name.trim()) { s.name = name.trim(); save(); render(); }
+  };
+
+  $("#delete-subject").onclick = () => {
+    const s = subjectOf(state.ui.view); if (!s) return;
+    const ids = new Set(subtreeIds(s.id));
+    const n = state.todos.filter(t => ids.has(t.subjectId)).length + state.notes.filter(x => ids.has(x.subjectId)).length;
+    const subs = ids.size - 1;
+    if (!confirm(`Delete “${s.name}”${subs ? `, its ${subs} sub-categor${subs === 1 ? "y" : "ies"},` : ""} and ${n} item${n === 1 ? "" : "s"}?`)) return;
+    const parent = parentKey(s);
+    state.subjects = state.subjects.filter(x => !ids.has(x.id));
+    state.todos = state.todos.filter(t => !ids.has(t.subjectId));
+    state.notes = state.notes.filter(x => !ids.has(x.subjectId));
+    state.ui.view = parent || "all"; save(); render(); toast("Subject deleted");
+  };
+
+  $("#export").onclick = () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `subjects-backup-${today()}.json`;
+    a.click(); URL.revokeObjectURL(a.href);
+    toast("Backup downloaded");
+  };
+  $("#import").onclick = () => $("#file").click();
+  $("#file").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const data = JSON.parse(r.result);
+        if (!data.subjects || !data.todos || !data.notes) throw new Error("bad file");
+        if (!confirm("Replace all current data with this backup?")) return;
+        state = data; if (!state.ui) state.ui = { view: "all", tab: "todos" };
+        save(); render(); toast("Backup restored");
+      } catch (err) { toast("That file isn't a valid backup"); }
+      e.target.value = "";
+    };
+    r.readAsText(f);
+  };
+
+  $("#menu").onclick = () => $("#sidebar").classList.toggle("open");
+
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); $("#search").focus(); $("#search").select(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
